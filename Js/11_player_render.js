@@ -120,3 +120,18 @@ window.drawCore = function() {
 
 window.drawPlayer =
     window.drawCore;
+
+
+// ============================================================
+// 11G. FILE LOADED
+// ============================================================
+
+if (
+    typeof window.fileLoaded ==
+    "function"
+) {
+
+    window.fileLoaded(
+        "11_player_render.js"
+    );
+}
