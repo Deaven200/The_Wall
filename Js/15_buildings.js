@@ -32,7 +32,7 @@ window.turretSettings = {
 
 window.buildTurret = function(x, y) {
 
-    buildings.push({
+    window.buildings.push({
 
         type: "turret",
 
@@ -53,19 +53,19 @@ window.buildTurret = function(x, y) {
         size: 1,
 
         range:
-            turretSettings.range,
+            window.turretSettings.range,
 
         damage:
-            turretSettings.damage,
+            window.turretSettings.damage,
 
         fireRate:
-            turretSettings.fireRate,
+            window.turretSettings.fireRate,
 
         ammo:
-            turretSettings.ammoCapacity,
+            window.turretSettings.ammoCapacity,
 
         ammoCapacity:
-            turretSettings.ammoCapacity,
+            window.turretSettings.ammoCapacity,
 
         fireCooldown: 0,
 
@@ -81,7 +81,7 @@ window.buildTurret = function(x, y) {
 window.updateBuildings = function(deltaTime) {
 
     for (
-        let turret of buildings
+        let turret of window.buildings
     ) {
 
         if (
@@ -105,7 +105,7 @@ window.updateBuildings = function(deltaTime) {
 
             if (
                 turret.reloadTimer >=
-                turretSettings.reloadTime
+                window.turretSettings.reloadTime
             ) {
 
                 turret.ammo =
@@ -186,10 +186,10 @@ function fireTurret(
 
 
     if (
-        typeof stats !== "undefined"
+        typeof window.stats !== "undefined"
     ) {
 
-        stats.shotsFired++;
+        window.stats.shotsFired++;
     }
 
 
@@ -218,7 +218,7 @@ function fireTurret(
         target.y + 0.5;
 
 
-    bullets.push({
+    window.bullets.push({
 
         x: startX,
 
@@ -249,13 +249,13 @@ function fireTurret(
 window.updateBullets = function(deltaTime) {
 
     for (
-        let i = bullets.length - 1;
+        let i = window.bullets.length - 1;
         i >= 0;
         i--
     ) {
 
         let bullet =
-            bullets[i];
+            window.bullets[i];
 
 
         let dx =
@@ -308,7 +308,7 @@ window.updateBullets = function(deltaTime) {
             }
 
 
-            bullets.splice(
+            window.bullets.splice(
                 i,
                 1
             );
@@ -339,7 +339,7 @@ window.updateBullets = function(deltaTime) {
 window.drawBuildings = function() {
 
     for (
-        let building of buildings
+        let building of window.buildings
     ) {
 
         if (
@@ -598,7 +598,7 @@ function drawTurret(turret) {
 window.drawBullets = function() {
 
     for (
-        let bullet of bullets
+        let bullet of window.bullets
     ) {
 
         /*
@@ -671,7 +671,7 @@ window.updateBuildingStats = function() {
 
 
     for (
-        let building of buildings
+        let building of window.buildings
     ) {
 
         if (
