@@ -475,7 +475,7 @@ function loadFile(
     // --------------------------------------------------------
 
     script.src =
-        "js/" +
+        "Js/" +
         file +
         "?v=" +
         Date.now();
@@ -525,7 +525,7 @@ function loadFile(
             showError(
                 file,
                 "The browser could not load this file.\n" +
-                "Requested: js/" +
+                "Requested: Js/" +
                 file
             );
 
