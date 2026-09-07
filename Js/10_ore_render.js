@@ -14,32 +14,47 @@ window.drawOre = function(
     if (
         tile.type != "ore"
     ) {
+
         return;
     }
 
 
     // ========================================================
-    // 10A. FULL DETAIL
+    // 10A. LOD 1 — TINY ORE CIRCLES
     // ========================================================
 
     if (
         camera.zoom > 0.75
     ) {
 
+        // ----------------------------------------------------
+        // ORE COLOR
+        // ----------------------------------------------------
+
         if (
             tile.ore == "coal"
         ) {
-            ctx.fillStyle = "#333";
+
+            ctx.fillStyle =
+                "#333";
 
         } else if (
             tile.ore == "copper"
         ) {
-            ctx.fillStyle = "orange";
+
+            ctx.fillStyle =
+                "orange";
 
         } else {
-            ctx.fillStyle = "red";
+
+            ctx.fillStyle =
+                "red";
         }
 
+
+        // ----------------------------------------------------
+        // 100 ORE = 1 CIRCLE
+        // ----------------------------------------------------
 
         let circles =
             Math.ceil(
@@ -50,8 +65,9 @@ window.drawOre = function(
         ctx.save();
 
 
-        // Only tiny circles are clipped
-        // to their tile.
+        // ----------------------------------------------------
+        // KEEP CIRCLES INSIDE TILE
+        // ----------------------------------------------------
 
         ctx.beginPath();
 
@@ -64,6 +80,10 @@ window.drawOre = function(
 
         ctx.clip();
 
+
+        // ----------------------------------------------------
+        // DRAW CIRCLES
+        // ----------------------------------------------------
 
         for (
             let i = 0;
@@ -78,6 +98,7 @@ window.drawOre = function(
                     i * 2
                 );
 
+
             let randomY =
                 random(
                     x,
@@ -89,6 +110,7 @@ window.drawOre = function(
             let circleX =
                 screenX +
                 randomX * size;
+
 
             let circleY =
                 screenY +
@@ -120,41 +142,63 @@ window.drawOre = function(
 
 
     // ========================================================
-    // 10B. MEDIUM DETAIL
+    // 10B. LOD 2 — ONE CIRCLE PER TILE
     // ========================================================
 
     if (
         camera.zoom > 0.35
     ) {
 
+        // ----------------------------------------------------
+        // ORE COLOR
+        // ----------------------------------------------------
+
         if (
             tile.ore == "coal"
         ) {
-            ctx.fillStyle = "#333";
+
+            ctx.fillStyle =
+                "#333";
 
         } else if (
             tile.ore == "copper"
         ) {
-            ctx.fillStyle = "orange";
+
+            ctx.fillStyle =
+                "orange";
 
         } else {
-            ctx.fillStyle = "red";
+
+            ctx.fillStyle =
+                "red";
         }
 
+
+        // ----------------------------------------------------
+        // CENTER OF TILE
+        // ----------------------------------------------------
 
         let circleX =
             screenX +
             size / 2;
 
+
         let circleY =
             screenY +
             size / 2;
+
+
+        // ----------------------------------------------------
+        // CIRCLE SIZE
+        // ----------------------------------------------------
 
         let radius =
             size * 0.22;
 
 
-        // No clipping here.
+        // ----------------------------------------------------
+        // DRAW
+        // ----------------------------------------------------
 
         ctx.beginPath();
 
