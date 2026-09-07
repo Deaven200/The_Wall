@@ -15,3 +15,18 @@ canvas.height =
 
 canvas.style.touchAction =
     "none";
+
+
+// ============================================================
+// 1A. FILE LOADED
+// ============================================================
+
+if (
+    typeof window.fileLoaded ==
+    "function"
+) {
+
+    window.fileLoaded(
+        "01_canvas.js"
+    );
+}
