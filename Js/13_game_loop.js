@@ -22,6 +22,10 @@ window.gameLoop = function(currentTime) {
         window.updateBuildings(deltaTime);
 
         window.updateBullets(deltaTime);
+
+        if (typeof window.updateBuildingStats === "function") {
+            window.updateBuildingStats();
+        }
     }
 
 
