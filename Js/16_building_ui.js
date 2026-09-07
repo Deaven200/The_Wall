@@ -505,7 +505,7 @@ canvas.addEventListener(
                 Actually build it.
             */
 
-            buildTurret(
+            window.buildTurret(
                 tileX,
                 tileY
             );
@@ -529,7 +529,7 @@ canvas.addEventListener(
 function isBuildingAt(x, y) {
 
     for (
-        let building of buildings
+        let building of window.buildings
     ) {
 
         if (
@@ -554,33 +554,33 @@ window.updateStatsUI = function() {
 
     let shotsElement =
         document.getElementById(
-            "shotsFired"
+            "statShotsFired"
         );
 
 
     let destroyedElement =
         document.getElementById(
-            "wallDestroyed"
+            "statWallDestroyed"
         );
 
 
     let turretElement =
         document.getElementById(
-            "turretCount"
+            "statTurrets"
         );
 
 
     if (shotsElement) {
 
         shotsElement.textContent =
-            stats.shotsFired;
+            window.stats.shotsFired;
     }
 
 
     if (destroyedElement) {
 
         destroyedElement.textContent =
-            stats.wallDestroyed;
+            window.stats.wallDestroyed;
     }
 
 
