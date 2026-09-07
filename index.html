@@ -16,6 +16,288 @@
 
     <canvas id="game"></canvas>
 
+
+    <!-- ================================================= -->
+    <!-- GAME UI                                           -->
+    <!-- ================================================= -->
+
+    <div id="gameUI">
+
+
+        <!-- ============================================= -->
+        <!-- BUILDING MENU                                 -->
+        <!-- ============================================= -->
+
+        <div
+            id="buildingPanel"
+            class="sidePanel leftPanel"
+        >
+
+            <div class="panelTitle">
+                BUILDINGS
+            </div>
+
+
+            <div
+                id="buildingList"
+                class="buildingList"
+            >
+
+                <button
+                    class="buildingButton"
+                    data-building="turret"
+                >
+
+                    <div class="buildingIcon">
+                        🔫
+                    </div>
+
+                    <div>
+                        TURRET
+                    </div>
+
+                </button>
+
+            </div>
+
+
+            <div class="pageControls">
+
+                <button id="buildingPrev">
+                    ◀
+                </button>
+
+                <span id="buildingPage">
+                    1 / 1
+                </span>
+
+                <button id="buildingNext">
+                    ▶
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <!-- ============================================= -->
+        <!-- MENU PANEL                                    -->
+        <!-- ============================================= -->
+
+        <div
+            id="menuPanel"
+            class="centerPanel"
+        >
+
+            <div class="panelTitle">
+                MENU
+            </div>
+
+            <div class="menuItem">
+                RESEARCH
+            </div>
+
+            <div class="menuItem">
+                SAVE
+            </div>
+
+            <div class="menuItem">
+                SETTINGS
+            </div>
+
+        </div>
+
+
+        <!-- ============================================= -->
+        <!-- STATS PANEL                                   -->
+        <!-- ============================================= -->
+
+        <div
+            id="statsPanel"
+            class="sidePanel rightPanel"
+        >
+
+            <div class="panelTitle">
+                STATISTICS
+            </div>
+
+
+            <div class="statsSection">
+
+                <div class="statsHeader">
+                    BUILDINGS
+                </div>
+
+                <div class="statRow">
+
+                    <span>
+                        Turrets
+                    </span>
+
+                    <span id="statTurrets">
+                        0
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <div class="statsSection">
+
+                <div class="statsHeader">
+                    TURRET
+                </div>
+
+                <div class="statRow">
+
+                    <span>
+                        Damage
+                    </span>
+
+                    <span id="statTurretDamage">
+                        100%
+                    </span>
+
+                </div>
+
+
+                <div class="statRow">
+
+                    <span>
+                        Range
+                    </span>
+
+                    <span id="statTurretRange">
+                        10
+                    </span>
+
+                </div>
+
+
+                <div class="statRow">
+
+                    <span>
+                        Fire Rate
+                    </span>
+
+                    <span id="statTurretFireRate">
+                        100%
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <div class="statsSection">
+
+                <div class="statsHeader">
+                    WALL
+                </div>
+
+                <div class="statRow">
+
+                    <span>
+                        Wall Destroyed
+                    </span>
+
+                    <span id="statWallDestroyed">
+                        0
+                    </span>
+
+                </div>
+
+
+                <div class="statRow">
+
+                    <span>
+                        Shots Fired
+                    </span>
+
+                    <span id="statShotsFired">
+                        0
+                    </span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ============================================= -->
+        <!-- BOTTOM BUTTONS                               -->
+        <!-- ============================================= -->
+
+        <div id="bottomBar">
+
+
+            <button
+                id="buildButton"
+                class="bottomButton"
+            >
+
+                <span class="buttonIcon">
+                    🏗️
+                </span>
+
+                <span>
+                    BUILD
+                </span>
+
+            </button>
+
+
+            <button
+                id="menuButton"
+                class="bottomButton"
+            >
+
+                <span class="buttonIcon">
+                    ☰
+                </span>
+
+                <span>
+                    MENU
+                </span>
+
+            </button>
+
+
+            <button
+                id="statsButton"
+                class="bottomButton"
+            >
+
+                <span class="buttonIcon">
+                    📊
+                </span>
+
+                <span>
+                    STATS
+                </span>
+
+            </button>
+
+
+        </div>
+
+
+        <!-- ============================================= -->
+        <!-- BUILDING PLACEMENT INFO                       -->
+        <!-- ============================================= -->
+
+        <div id="placementInfo">
+
+            TAP THE WORLD TO PLACE TURRET
+
+        </div>
+
+
+    </div>
+
+
     <script src="js/00_loader.js"></script>
 
 </body>
