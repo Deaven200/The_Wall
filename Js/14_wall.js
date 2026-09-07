@@ -3,7 +3,7 @@
 ========================================= */
 
 window.wall = {
-    y: -5,
+    y: -50,
     speed: 1,
     thickness: 3,
     cellHealth: 30,
