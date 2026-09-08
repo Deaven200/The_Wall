@@ -1,358 +1,818 @@
-/* =========================================
-   14 - WALL
-========================================= */
-
 window.wall = {
     y: -50,
-    speed: 1,
-    thickness: 3,
-    cellHealth: 30,
-    destroyedCells: new Set(),
-    cellHealthMap: new Map()
+    speed: 0.25,
+
+    holes: [],
+
+    bulletHoleRadius: 0.8,
+
+    depth: 100000,
+
+    canvas: null,
+    ctx: null,
+    lastCanvasWidth: 0,
+    lastCanvasHeight: 0
 };
 
 
-/* =========================================
-   UPDATE WALL
-========================================= */
+/*
+==================================================
+WALL INITIALIZATION
+==================================================
+*/
 
-window.updateWall = function(deltaTime) {
+function initializeWallCanvas() {
 
-    if (window.gameOver) {
-        return;
+    if (window.wall.canvas === null) {
+
+        window.wall.canvas =
+            document.createElement("canvas");
+
+        window.wall.ctx =
+            window.wall.canvas.getContext("2d");
     }
 
-    wall.y += wall.speed * deltaTime;
+    if (
+        window.wall.canvas.width !== canvas.width ||
+        window.wall.canvas.height !== canvas.height
+    ) {
 
-    if (wall.y >= 0) {
+        window.wall.canvas.width =
+            canvas.width;
 
-        if (typeof window.destroyCore === "function") {
-            window.destroyCore();
+        window.wall.canvas.height =
+            canvas.height;
+
+        window.wall.lastCanvasWidth =
+            canvas.width;
+
+        window.wall.lastCanvasHeight =
+            canvas.height;
+    }
+}
+
+
+/*
+==================================================
+WALL COORDINATES
+==================================================
+*/
+
+function getWallScreenY() {
+
+    return (
+        (
+            window.wall.y * tileSize -
+            camera.y
+        ) *
+        camera.zoom +
+        canvas.height / 2
+    );
+}
+
+
+/*
+==================================================
+HOLES
+==================================================
+*/
+
+function getHoleWorldY(hole) {
+
+    return (
+        window.wall.y +
+        hole.offsetY
+    );
+}
+
+
+function isInsideWallHole(worldX, worldY) {
+
+    let holes =
+        window.wall.holes;
+
+    for (let i = 0; i < holes.length; i++) {
+
+        let hole = holes[i];
+
+        let holeY =
+            getHoleWorldY(hole);
+
+        let dx =
+            worldX -
+            hole.x;
+
+        let dy =
+            worldY -
+            holeY;
+
+        if (
+            dx * dx +
+            dy * dy <=
+            hole.radius * hole.radius
+        ) {
+
+            return true;
         }
     }
-};
+
+    return false;
+}
 
 
-/* =========================================
-   GET WALL CELL KEY
-========================================= */
+/*
+==================================================
+WALL COLLISION
+==================================================
+*/
 
-window.getWallCellKey = function(x, y) {
+function isWallSolid(worldX, worldY) {
 
-    return x + "," + y;
-};
+    /*
+    ----------------------------------------------
+    Everything South of the Wall front is empty.
+    ----------------------------------------------
+    */
 
+    if (
+        worldY >=
+        window.wall.y
+    ) {
 
-/* =========================================
-   CHECK IF WALL CELL IS DESTROYED
-========================================= */
-
-window.isWallCellDestroyed = function(x, y) {
-
-    var key = window.getWallCellKey(x, y);
-
-    return wall.destroyedCells.has(key);
-};
-
-
-/* =========================================
-   FIND CLOSEST WALL CELL
-========================================= */
-
-window.getClosestWallCell = function(turretX, turretY, range) {
-
-    var frontY = Math.floor(wall.y);
-
-    var backY =
-        frontY -
-        wall.thickness +
-        1;
-
-    var closest = null;
-
-    var closestDistance = Infinity;
-
-    var minX =
-        Math.floor(turretX - range);
-
-    var maxX =
-        Math.ceil(turretX + range);
+        return false;
+    }
 
 
-    for (var y = backY; y <= frontY; y++) {
+    /*
+    ----------------------------------------------
+    Holes remove Wall from the layer.
+    ----------------------------------------------
+    */
 
-        for (var x = minX; x <= maxX; x++) {
+    if (
+        isInsideWallHole(
+            worldX,
+            worldY
+        )
+    ) {
+
+        return false;
+    }
+
+
+    return true;
+}
+
+
+/*
+==================================================
+DESTROY WALL
+==================================================
+*/
+
+function destroyWallCircle(
+    worldX,
+    worldY,
+    radius
+) {
+
+    /*
+    ----------------------------------------------
+    Don't create holes in empty space.
+    ----------------------------------------------
+    */
+
+    if (
+        worldY >=
+        window.wall.y
+    ) {
+
+        return false;
+    }
+
+
+    /*
+    ----------------------------------------------
+    Store the hole relative to the Wall.
+
+    This causes the hole to move with the Wall.
+    ----------------------------------------------
+    */
+
+    let hole = {
+
+        x: worldX,
+
+        offsetY:
+            worldY -
+            window.wall.y,
+
+        radius: radius
+    };
+
+
+    window.wall.holes.push(hole);
+
+
+    /*
+    ----------------------------------------------
+    Statistics
+    ----------------------------------------------
+    */
+
+    if (
+        window.stats &&
+        typeof window.stats.wallDestroyed ===
+        "number"
+    ) {
+
+        window.stats.wallDestroyed++;
+    }
+
+
+    return true;
+}
+
+
+/*
+==================================================
+COMPATIBILITY FUNCTION
+==================================================
+*/
+
+function damageWallCell(
+    x,
+    y,
+    worldY
+) {
+
+    return destroyWallCircle(
+        x + 0.5,
+        worldY + 0.5,
+        window.wall.bulletHoleRadius
+    );
+}
+
+
+/*
+==================================================
+FIND CLOSEST WALL POINT
+==================================================
+*/
+
+/*
+    The Wall is an infinite layer.
+
+    A turret can therefore be:
+
+        1. South of the Wall front
+        2. At the Wall front
+        3. North of the Wall front
+
+    In all three situations the turret can still
+    find Wall within its range.
+
+    We search a circle around the turret rather than
+    assuming the Wall front is always the target.
+*/
+
+function getClosestWallPoint(
+    worldX,
+    worldY,
+    range
+) {
+
+    let bestPoint = null;
+
+    let bestDistanceSquared =
+        range * range;
+
+
+    /*
+    ----------------------------------------------
+    Search the area around the turret.
+
+    We use a coarse grid first. This is much cheaper
+    than the old very dense scan.
+    ----------------------------------------------
+    */
+
+    let step = 0.5;
+
+    let steps =
+        Math.ceil(
+            range /
+            step
+        );
+
+
+    for (
+        let y = -steps;
+        y <= steps;
+        y++
+    ) {
+
+        let testY =
+            worldY +
+            y * step;
+
+
+        for (
+            let x = -steps;
+            x <= steps;
+            x++
+        ) {
+
+            let testX =
+                worldX +
+                x * step;
+
+
+            /*
+            --------------------------------------
+            Distance from turret.
+            --------------------------------------
+            */
+
+            let dx =
+                testX -
+                worldX;
+
+            let dy =
+                testY -
+                worldY;
+
+
+            let distanceSquared =
+                dx * dx +
+                dy * dy;
+
+
+            /*
+            --------------------------------------
+            Outside turret range.
+            --------------------------------------
+            */
 
             if (
-                window.isWallCellDestroyed(x, y)
+                distanceSquared >=
+                bestDistanceSquared
             ) {
+
                 continue;
             }
 
 
-            var wallX = x + 0.5;
-            var wallY = y + 0.5;
-
-            var turretXCenter =
-                turretX + 0.5;
-
-            var turretYCenter =
-                turretY + 0.5;
-
-
-            var dx =
-                wallX -
-                turretXCenter;
-
-            var dy =
-                wallY -
-                turretYCenter;
-
-
-            var distance =
-                Math.sqrt(
-                    dx * dx +
-                    dy * dy
-                );
-
+            /*
+            --------------------------------------
+            Is this actually solid Wall?
+            --------------------------------------
+            */
 
             if (
-                distance <= range &&
-                distance < closestDistance
+                !isWallSolid(
+                    testX,
+                    testY
+                )
             ) {
 
-                closestDistance = distance;
-
-                closest = {
-                    x: x,
-                    y: y,
-                    distance: distance
-                };
+                continue;
             }
+
+
+            /*
+            --------------------------------------
+            New closest target.
+            --------------------------------------
+            */
+
+            bestDistanceSquared =
+                distanceSquared;
+
+
+            bestPoint = {
+
+                x: testX,
+
+                y: testY
+            };
         }
     }
 
 
-    return closest;
-};
+    return bestPoint;
+}
 
 
-/* =========================================
-   DAMAGE WALL CELL
-========================================= */
+/*
+==================================================
+OLD FUNCTION COMPATIBILITY
+==================================================
+*/
 
-window.damageWallCell = function(x, y, damage) {
+function getClosestWallCell(
+    worldX,
+    worldY,
+    range
+) {
 
-    var key =
-        window.getWallCellKey(x, y);
+    return getClosestWallPoint(
+        worldX,
+        worldY,
+        range
+    );
+}
+
+
+/*
+==================================================
+CORE COLLISION
+==================================================
+*/
+
+function checkCoreWallCollision() {
+
+    let core =
+        window.core;
 
 
     if (
-        wall.destroyedCells.has(key)
+        !core ||
+        core.destroyed
     ) {
+
         return;
     }
 
 
-    var health =
-        wall.cellHealthMap.get(key);
-
-
-    if (
-        health === undefined
-    ) {
-
-        health =
-            wall.cellHealth;
-    }
-
-
-    health -= damage;
-
-
-    if (
-        health <= 0
-    ) {
-
-        wall.cellHealthMap.delete(key);
-
-        wall.destroyedCells.add(key);
-
-
-        if (
-            typeof window.stats !== "undefined"
-        ) {
-
-            window.stats.wallDestroyed++;
-        }
-
-    } else {
-
-        wall.cellHealthMap.set(
-            key,
-            health
-        );
-    }
-};
-
-
-/* =========================================
-   DRAW WALL
-========================================= */
-
-window.drawWall = function() {
-
-    var frontY =
-        Math.floor(wall.y);
-
-
-    var backY =
-        frontY -
-        wall.thickness +
-        1;
-
-
-    /*
-        Figure out which world tiles
-        are currently visible.
-    */
-
-    var worldLeft =
-        wallCameraLeft();
-
-
-    var worldRight =
-        wallCameraRight();
-
-
-    var minX =
-        Math.floor(worldLeft / tileSize) - 2;
-
-
-    var maxX =
-        Math.ceil(worldRight / tileSize) + 2;
-
-
-    /*
-        Draw every Wall cell.
-    */
-
     for (
-        var y = backY;
-        y <= frontY;
+        let y = core.y;
+        y < core.y + core.height;
         y++
     ) {
 
         for (
-            var x = minX;
-            x <= maxX;
+            let x = core.x;
+            x < core.x + core.width;
             x++
         ) {
 
             if (
-                window.isWallCellDestroyed(x, y)
+                isWallSolid(
+                    x + 0.5,
+                    y + 0.5
+                )
             ) {
-                continue;
+
+                window.destroyCore();
+
+                return;
+            }
+        }
+    }
+}
+
+
+/*
+==================================================
+BUILDING COLLISION
+==================================================
+*/
+
+function checkBuildingWallCollision() {
+
+    if (
+        !window.buildings ||
+        window.buildings.length === 0
+    ) {
+
+        return;
+    }
+
+
+    for (
+        let i = 0;
+        i < window.buildings.length;
+        i++
+    ) {
+
+        let building =
+            window.buildings[i];
+
+
+        if (!building) {
+            continue;
+        }
+
+
+        let size =
+            building.size || 1;
+
+
+        let destroyed =
+            false;
+
+
+        for (
+            let y = 0;
+            y < size;
+            y++
+        ) {
+
+            for (
+                let x = 0;
+                x < size;
+                x++
+            ) {
+
+                let tileX =
+                    building.x +
+                    x;
+
+                let tileY =
+                    building.y +
+                    y;
+
+
+                if (
+                    isWallSolid(
+                        tileX + 0.5,
+                        tileY + 0.5
+                    )
+                ) {
+
+                    destroyed =
+                        true;
+
+                    break;
+                }
             }
 
 
-            var screenX =
+            if (destroyed) {
+                break;
+            }
+        }
+
+
+        if (destroyed) {
+
+            window.buildings.splice(
+                i,
+                1
+            );
+
+            i--;
+        }
+    }
+}
+
+
+/*
+==================================================
+WALL UPDATE
+==================================================
+*/
+
+function updateWall(deltaTime) {
+
+    /*
+    ----------------------------------------------
+    Smooth Wall movement.
+    ----------------------------------------------
+    */
+
+    window.wall.y +=
+        window.wall.speed *
+        deltaTime;
+
+
+    /*
+    ----------------------------------------------
+    Check collisions.
+    ----------------------------------------------
+    */
+
+    checkCoreWallCollision();
+
+
+    if (!window.gameOver) {
+
+        checkBuildingWallCollision();
+    }
+}
+
+
+/*
+==================================================
+WALL RENDERING
+==================================================
+*/
+
+function drawWall() {
+
+    initializeWallCanvas();
+
+
+    let wallCanvas =
+        window.wall.canvas;
+
+    let wallCtx =
+        window.wall.ctx;
+
+
+    /*
+    ----------------------------------------------
+    Clear reusable Wall canvas.
+    ----------------------------------------------
+    */
+
+    wallCtx.clearRect(
+        0,
+        0,
+        wallCanvas.width,
+        wallCanvas.height
+    );
+
+
+    /*
+    ----------------------------------------------
+    Calculate Wall front.
+    ----------------------------------------------
+    */
+
+    let wallScreenY =
+        getWallScreenY();
+
+
+    /*
+    ----------------------------------------------
+    If the Wall is completely below the screen,
+    there is nothing to draw.
+    ----------------------------------------------
+    */
+
+    if (
+        wallScreenY >=
+        canvas.height
+    ) {
+
+        return;
+    }
+
+
+    /*
+    ----------------------------------------------
+    Draw the Wall layer.
+
+    Everything above the front is Wall.
+    ----------------------------------------------
+    */
+
+    wallCtx.fillStyle =
+        "#555";
+
+
+    wallCtx.fillRect(
+        0,
+        0,
+        wallCanvas.width,
+        Math.max(
+            0,
+            wallScreenY
+        )
+    );
+
+
+    /*
+    ----------------------------------------------
+    Cut destruction holes.
+    ----------------------------------------------
+    */
+
+    if (
+        window.wall.holes.length > 0
+    ) {
+
+        wallCtx.save();
+
+
+        wallCtx.globalCompositeOperation =
+            "destination-out";
+
+
+        for (
+            let i = 0;
+            i < window.wall.holes.length;
+            i++
+        ) {
+
+            let hole =
+                window.wall.holes[i];
+
+
+            let holeWorldY =
+                getHoleWorldY(hole);
+
+
+            let screenX =
                 (
-                    x * tileSize -
+                    hole.x * tileSize -
                     camera.x
                 ) *
                 camera.zoom +
                 canvas.width / 2;
 
 
-            var screenY =
+            let screenY =
                 (
-                    y * tileSize -
+                    holeWorldY * tileSize -
                     camera.y
                 ) *
                 camera.zoom +
                 canvas.height / 2;
 
 
-            var size =
+            let radius =
+                hole.radius *
                 tileSize *
                 camera.zoom;
 
 
-            ctx.fillStyle =
-                "#222";
+            wallCtx.beginPath();
 
 
-            ctx.fillRect(
+            wallCtx.arc(
                 screenX,
                 screenY,
-                size + 1,
-                size + 1
+                radius,
+                0,
+                Math.PI * 2
             );
+
+
+            wallCtx.fill();
         }
+
+
+        wallCtx.restore();
     }
 
 
     /*
-        Draw the moving front edge.
+    ----------------------------------------------
+    Draw Wall layer over the world.
+    ----------------------------------------------
     */
 
-    var frontScreenY =
-        (
-            wall.y * tileSize -
-            camera.y
-        ) *
-        camera.zoom +
-        canvas.height / 2;
-
-
-    ctx.fillStyle =
-        "#111";
-
-
-    ctx.fillRect(
+    ctx.drawImage(
+        wallCanvas,
         0,
-        frontScreenY - 2,
-        canvas.width,
-        4
-    );
-};
-
-
-/* =========================================
-   CAMERA LEFT
-========================================= */
-
-function wallCameraLeft() {
-
-    return (
-        camera.x -
-        canvas.width /
-        (2 * camera.zoom)
+        0
     );
 }
 
 
-/* =========================================
-   CAMERA RIGHT
-========================================= */
+/*
+==================================================
+GLOBAL FUNCTIONS
+==================================================
+*/
 
-function wallCameraRight() {
+window.getWallScreenY =
+    getWallScreenY;
 
-    return (
-        camera.x +
-        canvas.width /
-        (2 * camera.zoom)
-    );
-}
+window.isWallSolid =
+    isWallSolid;
+
+window.destroyWallCircle =
+    destroyWallCircle;
+
+window.damageWallCell =
+    damageWallCell;
+
+window.getClosestWallPoint =
+    getClosestWallPoint;
+
+window.getClosestWallCell =
+    getClosestWallCell;
+
+window.updateWall =
+    updateWall;
+
+window.drawWall =
+    drawWall;
 
 
-/* =========================================
-   FILE LOADED
-========================================= */
+/*
+==================================================
+LOADER
+==================================================
+*/
 
 if (
-    typeof window.fileLoaded === "function"
+    typeof window.fileLoaded ==
+    "function"
 ) {
 
     window.fileLoaded(
