@@ -1,204 +1,173 @@
-/* =========================================
-   15 - BUILDINGS
-========================================= */
-
 window.buildings = [];
-
 window.bullets = [];
-
-
-/* =========================================
-   TURRET SETTINGS
-========================================= */
 
 window.turretSettings = {
     size: 1,
-
     range: 10,
-
     damage: 10,
-
     fireRate: 1,
-
     ammoCapacity: 10,
+    reloadTime: 2,
+    bulletSpeed: 12,
+    bulletRadius: 0.12
+};
 
-    reloadTime: 2
+window.turretAISettings = {
+    targetSearchInterval: 0.15
 };
 
 
-/* =========================================
-   BUILD TURRET
-========================================= */
+// ==============================
+// BUILDING
+// ==============================
 
-window.buildTurret = function(x, y) {
+function buildTurret(x, y) {
 
-    window.buildings.push({
+    let settings = window.turretSettings;
 
+    let turret = {
         type: "turret",
-
-        /*
-            These are TILE coordinates.
-
-            Example:
-            x = 5
-            y = -2
-
-            means the turret is sitting
-            on world tile (5, -2).
-        */
 
         x: x,
         y: y,
 
-        size: 1,
+        size: settings.size,
 
-        range:
-            window.turretSettings.range,
+        range: settings.range,
+        damage: settings.damage,
 
-        damage:
-            window.turretSettings.damage,
+        fireRate: settings.fireRate,
 
-        fireRate:
-            window.turretSettings.fireRate,
+        ammo: settings.ammoCapacity,
+        maxAmmo: settings.ammoCapacity,
 
-        ammo:
-            window.turretSettings.ammoCapacity,
-
-        ammoCapacity:
-            window.turretSettings.ammoCapacity,
+        reloadTime: settings.reloadTime,
+        reloadTimer: 0,
 
         fireCooldown: 0,
 
-        reloadTimer: 0
-    });
-};
+        target: null,
+        targetSearchTimer: 0
+    };
+
+    window.buildings.push(turret);
+
+    return turret;
+}
 
 
-/* =========================================
-   UPDATE BUILDINGS
-========================================= */
+// ==============================
+// BUILDING UPDATE
+// ==============================
 
-window.updateBuildings = function(deltaTime) {
+function updateBuildings(deltaTime) {
 
     for (
-        let turret of window.buildings
+        let i = 0;
+        i < window.buildings.length;
+        i++
     ) {
 
-        if (
-            turret.type !== "turret"
-        ) {
-            continue;
+        let building =
+            window.buildings[i];
+
+        if (!building) continue;
+
+        if (building.type === "turret") {
+            updateTurret(
+                building,
+                deltaTime
+            );
         }
-
-
-        /* =========================
-           RELOAD
-        ========================= */
-
-        if (
-            turret.ammo <= 0
-        ) {
-
-            turret.reloadTimer +=
-                deltaTime;
-
-
-            if (
-                turret.reloadTimer >=
-                window.turretSettings.reloadTime
-            ) {
-
-                turret.ammo =
-                    turret.ammoCapacity;
-
-                turret.reloadTimer = 0;
-            }
-
-            continue;
-        }
-
-
-        /* =========================
-           FIRE COOLDOWN
-        ========================= */
-
-        if (
-            turret.fireCooldown > 0
-        ) {
-
-            turret.fireCooldown -=
-                deltaTime;
-
-            continue;
-        }
-
-
-        /* =========================
-           FIND WALL TARGET
-        ========================= */
-
-        let target = null;
-
-        if (
-            typeof getClosestWallCell ===
-            "function"
-        ) {
-
-            target =
-                getClosestWallCell(
-                    turret.x,
-                    turret.y,
-                    turret.range
-                );
-        }
-
-
-        if (!target) {
-            continue;
-        }
-
-
-        /* =========================
-           FIRE
-        ========================= */
-
-        fireTurret(
-            turret,
-            target
-        );
     }
-};
+}
 
 
-/* =========================================
-   FIRE TURRET
-========================================= */
+// ==============================
+// TURRET AI
+// ==============================
 
-function fireTurret(
-    turret,
-    target
-) {
+function updateTurret(turret, deltaTime) {
 
-    turret.ammo--;
+    if (turret.fireCooldown > 0) {
 
-    turret.fireCooldown =
-        1 / turret.fireRate;
+        turret.fireCooldown -= deltaTime;
 
+        if (turret.fireCooldown < 0) {
+            turret.fireCooldown = 0;
+        }
+    }
+
+
+    // Reload
+    if (turret.ammo <= 0) {
+
+        turret.reloadTimer += deltaTime;
+
+        if (
+            turret.reloadTimer >=
+            turret.reloadTime
+        ) {
+
+            turret.ammo =
+                turret.maxAmmo;
+
+            turret.reloadTimer = 0;
+        }
+
+        return;
+    }
+
+
+    // Target search
+    turret.targetSearchTimer -=
+        deltaTime;
 
     if (
-        typeof window.stats !== "undefined"
+        turret.targetSearchTimer <= 0
     ) {
 
-        window.stats.shotsFired++;
+        turret.targetSearchTimer =
+            window.turretAISettings
+                .targetSearchInterval;
+
+        turret.target =
+            window.getClosestWallPoint(
+                turret.x + 0.5,
+                turret.y + 0.5,
+                turret.range
+            );
     }
 
 
-    /*
-        Turret center.
+    if (turret.target === null) {
+        return;
+    }
 
-        Turret x/y are TILE coordinates,
-        so +0.5 gives the center of the tile.
-    */
+
+    if (turret.fireCooldown <= 0) {
+        fireTurret(turret);
+    }
+}
+
+
+// ==============================
+// FIRE
+// ==============================
+
+function fireTurret(turret) {
+
+    if (turret.ammo <= 0) {
+        return;
+    }
+
+    let target =
+        turret.target;
+
+    if (!target) {
+        return;
+    }
+
 
     let startX =
         turret.x + 0.5;
@@ -207,46 +176,188 @@ function fireTurret(
         turret.y + 0.5;
 
 
-    /*
-        Wall cell center.
-    */
+    let dx =
+        target.x - startX;
 
-    let targetX =
-        target.x + 0.5;
-
-    let targetY =
-        target.y + 0.5;
+    let dy =
+        target.y - startY;
 
 
-    window.bullets.push({
+    let distance =
+        Math.sqrt(
+            dx * dx +
+            dy * dy
+        );
+
+
+    if (distance <= 0) {
+        return;
+    }
+
+
+    let directionX =
+        dx / distance;
+
+    let directionY =
+        dy / distance;
+
+
+    let bullet = {
 
         x: startX,
-
         y: startY,
 
-        targetX: targetX,
+        previousX: startX,
+        previousY: startY,
 
-        targetY: targetY,
+        vx:
+            directionX *
+            turretSettings.bulletSpeed,
 
-        speed: 20,
+        vy:
+            directionY *
+            turretSettings.bulletSpeed,
+
+        targetX:
+            target.x,
+
+        targetY:
+            target.y,
+
+        speed:
+            turretSettings.bulletSpeed,
 
         damage:
             turret.damage,
 
-        wallX:
-            target.x,
+        radius:
+            turretSettings.bulletRadius
+    };
 
-        wallY:
-            target.y
-    });
+
+    window.bullets.push(
+        bullet
+    );
+
+
+    turret.ammo--;
+
+    turret.fireCooldown =
+        1 / turret.fireRate;
+
+
+    if (
+        window.stats &&
+        typeof window.stats.shotsFired ===
+        "number"
+    ) {
+
+        window.stats.shotsFired++;
+    }
 }
 
 
-/* =========================================
-   UPDATE BULLETS
-========================================= */
+// ==============================
+// BULLET / WALL LINE TRACE
+// ==============================
 
-window.updateBullets = function(deltaTime) {
+function traceBulletToWall(
+    oldX,
+    oldY,
+    newX,
+    newY
+) {
+
+    if (
+        typeof window.wall ===
+        "undefined"
+    ) {
+        return null;
+    }
+
+
+    let wallY =
+        window.wall.y;
+
+
+    // The bullet must cross the Wall's
+    // horizontal front edge.
+    let oldSide =
+        oldY < wallY;
+
+    let newSide =
+        newY < wallY;
+
+
+    // No crossing this frame.
+    if (oldSide === newSide) {
+        return null;
+    }
+
+
+    let dy =
+        newY - oldY;
+
+
+    if (dy === 0) {
+        return null;
+    }
+
+
+    // Find exactly where the line
+    // crosses the Wall front.
+    let t =
+        (wallY - oldY) / dy;
+
+
+    if (t < 0 || t > 1) {
+        return null;
+    }
+
+
+    let hitX =
+        oldX +
+        (
+            newX - oldX
+        ) *
+        t;
+
+
+    let hitY =
+        wallY;
+
+
+    // Check whether this point is
+    // actually solid Wall.
+    if (
+        typeof window.isWallSolid ===
+        "function"
+    ) {
+
+        if (
+            !window.isWallSolid(
+                hitX,
+                hitY
+            )
+        ) {
+
+            return null;
+        }
+    }
+
+
+    return {
+        x: hitX,
+        y: hitY
+    };
+}
+
+
+// ==============================
+// BULLET UPDATE
+// ==============================
+
+function updateBullets(deltaTime) {
 
     for (
         let i = window.bullets.length - 1;
@@ -258,52 +369,60 @@ window.updateBullets = function(deltaTime) {
             window.bullets[i];
 
 
-        let dx =
-            bullet.targetX -
+        let oldX =
             bullet.x;
 
-
-        let dy =
-            bullet.targetY -
+        let oldY =
             bullet.y;
 
 
-        let distance =
-            Math.sqrt(
-                dx * dx +
-                dy * dy
-            );
+        bullet.previousX =
+            oldX;
+
+        bullet.previousY =
+            oldY;
 
 
-        let movement =
-            bullet.speed *
+        // Calculate new position
+        let newX =
+            oldX +
+            bullet.vx *
+            deltaTime;
+
+        let newY =
+            oldY +
+            bullet.vy *
             deltaTime;
 
 
-        /* =========================
-           BULLET HIT
-        ========================= */
+        // LINE TRACE
+        let wallHit =
+            traceBulletToWall(
+                oldX,
+                oldY,
+                newX,
+                newY
+            );
 
-        if (
-            distance <= movement
-        ) {
+
+        if (wallHit) {
 
             bullet.x =
-                bullet.targetX;
+                wallHit.x;
 
             bullet.y =
-                bullet.targetY;
+                wallHit.y;
 
 
             if (
-                typeof damageWallCell ===
+                typeof window.destroyWallCircle ===
                 "function"
             ) {
 
-                damageWallCell(
-                    bullet.wallX,
-                    bullet.wallY,
-                    bullet.damage
+                window.destroyWallCircle(
+                    wallHit.x,
+                    wallHit.y,
+                    0.8
                 );
             }
 
@@ -317,33 +436,89 @@ window.updateBullets = function(deltaTime) {
         }
 
 
-        /* =========================
-           MOVE BULLET
-        ========================= */
+        // Update position
+        bullet.x =
+            newX;
 
-        bullet.x +=
-            (dx / distance) *
-            movement;
-
-        bullet.y +=
-            (dy / distance) *
-            movement;
-    }
-};
+        bullet.y =
+            newY;
 
 
-/* =========================================
-   DRAW BUILDINGS
-========================================= */
+        // Check whether the bullet
+        // has reached its original target.
+        let targetDX =
+            bullet.targetX -
+            bullet.x;
 
-window.drawBuildings = function() {
+        let targetDY =
+            bullet.targetY -
+            bullet.y;
 
-    for (
-        let building of window.buildings
-    ) {
+
+        let targetDistance =
+            Math.sqrt(
+                targetDX *
+                targetDX +
+                targetDY *
+                targetDY
+            );
+
 
         if (
-            building.type === "turret"
+            targetDistance <=
+            bullet.speed *
+            deltaTime
+        ) {
+
+            bullet.x =
+                bullet.targetX;
+
+            bullet.y =
+                bullet.targetY;
+
+
+            if (
+                typeof window.destroyWallCircle ===
+                "function"
+            ) {
+
+                window.destroyWallCircle(
+                    bullet.x,
+                    bullet.y,
+                    0.8
+                );
+            }
+
+
+            window.bullets.splice(
+                i,
+                1
+            );
+        }
+    }
+}
+
+
+// ==============================
+// DRAW BUILDINGS
+// ==============================
+
+function drawBuildings() {
+
+    for (
+        let i = 0;
+        i < window.buildings.length;
+        i++
+    ) {
+
+        let building =
+            window.buildings[i];
+
+        if (!building) continue;
+
+        if (
+            building.type ===
+            "turret"
         ) {
 
             drawTurret(
@@ -351,56 +526,36 @@ window.drawBuildings = function() {
             );
         }
     }
-};
+}
 
 
-/* =========================================
-   DRAW TURRET
-========================================= */
+// ==============================
+// DRAW TURRET
+// ==============================
 
 function drawTurret(turret) {
 
-    /*
-        IMPORTANT:
-
-        turret.x/y are TILE coordinates.
-
-        Convert them to pixel coordinates
-        here.
-    */
-
     let centerX =
-        (
-            turret.x + 0.5
-        ) *
-        tileSize;
-
+        turret.x + 0.5;
 
     let centerY =
+        turret.y + 0.5;
+
+
+    let screenX =
         (
-            turret.y + 0.5
-        ) *
-        tileSize;
-
-
-    /*
-        Apply camera.
-
-        camera.x/y are PIXEL coordinates.
-    */
-
-    centerX =
-        (
-            centerX -
+            centerX *
+            tileSize -
             camera.x
         ) *
         camera.zoom +
         canvas.width / 2;
 
 
-    centerY =
+    let screenY =
         (
-            centerY -
+            centerY *
+            tileSize -
             camera.y
         ) *
         camera.zoom +
@@ -408,205 +563,141 @@ function drawTurret(turret) {
 
 
     let size =
+        turret.size *
         tileSize *
         camera.zoom;
 
 
-    /* =========================
-       TURRET BASE
-    ========================= */
+    ctx.save();
 
-    ctx.fillStyle =
-        "#777";
-
-
-    ctx.fillRect(
-
-        centerX -
-            size * 0.4,
-
-        centerY -
-            size * 0.4,
-
-        size * 0.8,
-
-        size * 0.8
+    ctx.translate(
+        screenX,
+        screenY
     );
 
 
-    /* =========================
-       FIND TARGET
-    ========================= */
+    let angle = 0;
 
-    let target = null;
-
-    if (
-        typeof getClosestWallCell ===
-        "function"
-    ) {
-
-        target =
-            getClosestWallCell(
-                turret.x,
-                turret.y,
-                turret.range
-            );
-    }
-
-
-    /* =========================
-       BARREL
-    ========================= */
-
-    if (target) {
-
-        let targetX =
-            (
-                target.x + 0.5
-            ) *
-            tileSize;
-
-
-        let targetY =
-            (
-                target.y + 0.5
-            ) *
-            tileSize;
-
-
-        targetX =
-            (
-                targetX -
-                camera.x
-            ) *
-            camera.zoom +
-            canvas.width / 2;
-
-
-        targetY =
-            (
-                targetY -
-                camera.y
-            ) *
-            camera.zoom +
-            canvas.height / 2;
-
+    if (turret.target) {
 
         let dx =
-            targetX -
+            turret.target.x -
             centerX;
 
-
         let dy =
-            targetY -
+            turret.target.y -
             centerY;
 
-
-        let angle =
+        angle =
             Math.atan2(
                 dy,
                 dx
             );
-
-
-        let barrelLength =
-            size * 0.45;
-
-
-        let barrelWidth =
-            Math.max(
-                3,
-                size * 0.14
-            );
-
-
-        ctx.save();
-
-
-        ctx.translate(
-            centerX,
-            centerY
-        );
-
-
-        ctx.rotate(
-            angle
-        );
-
-
-        ctx.fillStyle =
-            "#222";
-
-
-        /*
-            Starts EXACTLY at the
-            turret center.
-        */
-
-        ctx.fillRect(
-
-            0,
-
-            -barrelWidth / 2,
-
-            barrelLength,
-
-            barrelWidth
-        );
-
-
-        ctx.restore();
     }
 
 
-    /* =========================
-       CENTER OF TURRET
-    ========================= */
-
+    // Main body
     ctx.fillStyle =
-        "#aaa";
+        "#70777d";
 
-
-    ctx.beginPath();
-
-
-    ctx.arc(
-
-        centerX,
-
-        centerY,
-
-        Math.max(
-            3,
-            size * 0.18
-        ),
-
-        0,
-
-        Math.PI * 2
+    ctx.fillRect(
+        -size * 0.38,
+        -size * 0.38,
+        size * 0.76,
+        size * 0.76
     );
 
 
+    // Lower section
+    ctx.fillStyle =
+        "#555b60";
+
+    ctx.fillRect(
+        -size * 0.38,
+        size * 0.15,
+        size * 0.76,
+        size * 0.23
+    );
+
+
+    // Barrel
+    ctx.save();
+
+    ctx.rotate(angle);
+
+
+    ctx.fillStyle =
+        "#222";
+
+    ctx.fillRect(
+        size * 0.05,
+        -size * 0.14,
+        size * 0.35,
+        size * 0.28
+    );
+
+
+    ctx.fillStyle =
+        "#111";
+
+    ctx.fillRect(
+        size * 0.25,
+        -size * 0.09,
+        size * 0.55,
+        size * 0.18
+    );
+
+
+    ctx.fillStyle =
+        "#050505";
+
+    ctx.fillRect(
+        size * 0.72,
+        -size * 0.12,
+        size * 0.13,
+        size * 0.24
+    );
+
+
+    ctx.restore();
+
+
+    // Center
+    ctx.beginPath();
+
+    ctx.arc(
+        0,
+        0,
+        size * 0.16,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fillStyle =
+        "#3f4448";
+
     ctx.fill();
+
+
+    ctx.restore();
 }
 
 
-/* =========================================
-   DRAW BULLETS
-========================================= */
+// ==============================
+// DRAW BULLETS
+// ==============================
 
-window.drawBullets = function() {
+function drawBullets() {
 
     for (
-        let bullet of window.bullets
+        let i = 0;
+        i < window.bullets.length;
+        i++
     ) {
 
-        /*
-            Bullet coordinates are WORLD TILE
-            coordinates, including decimals.
+        let bullet =
+            window.bullets[i];
 
-            Convert to pixels here.
-        */
 
         let screenX =
             (
@@ -628,76 +719,136 @@ window.drawBullets = function() {
             canvas.height / 2;
 
 
-        let radius =
+        let previousScreenX =
+            (
+                bullet.previousX *
+                tileSize -
+                camera.x
+            ) *
+            camera.zoom +
+            canvas.width / 2;
+
+
+        let previousScreenY =
+            (
+                bullet.previousY *
+                tileSize -
+                camera.y
+            ) *
+            camera.zoom +
+            canvas.height / 2;
+
+
+        // Trail
+        ctx.beginPath();
+
+        ctx.moveTo(
+            previousScreenX,
+            previousScreenY
+        );
+
+        ctx.lineTo(
+            screenX,
+            screenY
+        );
+
+        ctx.strokeStyle =
+            "#ffffff";
+
+        ctx.lineWidth =
             Math.max(
                 2,
                 3 * camera.zoom
             );
 
-
-        ctx.fillStyle =
-            "#111";
+        ctx.stroke();
 
 
+        // Bullet
         ctx.beginPath();
 
-
         ctx.arc(
-
             screenX,
-
             screenY,
-
-            radius,
-
+            Math.max(
+                4,
+                0.12 *
+                tileSize *
+                camera.zoom
+            ),
             0,
-
             Math.PI * 2
         );
 
+        ctx.fillStyle =
+            "#ffffff";
 
         ctx.fill();
     }
-};
+}
 
 
-/* =========================================
-   BUILDING STATS
-========================================= */
+// ==============================
+// BUILDING STATS
+// ==============================
 
-window.updateBuildingStats = function() {
+function updateBuildingStats() {
+
+    if (!window.stats) {
+        return;
+    }
 
     let turretCount = 0;
 
-
     for (
-        let building of window.buildings
+        let i = 0;
+        i < window.buildings.length;
+        i++
     ) {
 
         if (
-            building.type === "turret"
+            window.buildings[i].type ===
+            "turret"
         ) {
 
             turretCount++;
         }
     }
 
-
     window.turretCount =
         turretCount;
-};
+}
 
 
-/* =========================================
-   FILE LOADED
-========================================= */
+// ==============================
+// GLOBAL FUNCTIONS
+// ==============================
+
+window.buildTurret =
+    buildTurret;
+
+window.updateBuildings =
+    updateBuildings;
+
+window.updateBullets =
+    updateBullets;
+
+window.drawBuildings =
+    drawBuildings;
+
+window.drawBullets =
+    drawBullets;
+
+window.updateBuildingStats =
+    updateBuildingStats;
+
 
 if (
-    typeof window.fileLoaded ==
+    typeof window.fileLoaded ===
     "function"
 ) {
 
     window.fileLoaded(
         "15_buildings.js"
     );
-}
+           }
