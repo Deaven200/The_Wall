@@ -1,6 +1,8 @@
 window.buildings = [];
 window.bullets = [];
 
+window.turretCount = 0;
+
 window.turretSettings = {
     size: 1,
     range: 10,
@@ -18,12 +20,13 @@ window.turretAISettings = {
 
 
 // ==============================
-// BUILDING
+// BUILD TURRET
 // ==============================
 
 function buildTurret(x, y) {
 
-    let settings = window.turretSettings;
+    let settings =
+        window.turretSettings;
 
     let turret = {
         type: "turret",
@@ -52,7 +55,50 @@ function buildTurret(x, y) {
 
     window.buildings.push(turret);
 
+    window.turretCount++;
+
     return turret;
+}
+
+
+// ==============================
+// REMOVE BUILDING
+// ==============================
+
+function removeBuilding(index) {
+
+    if (
+        index < 0 ||
+        index >= window.buildings.length
+    ) {
+        return;
+    }
+
+    let building =
+        window.buildings[index];
+
+    if (!building) {
+        return;
+    }
+
+    if (
+        building.type ===
+        "turret"
+    ) {
+
+        window.turretCount--;
+
+        if (
+            window.turretCount < 0
+        ) {
+            window.turretCount = 0;
+        }
+    }
+
+    window.buildings.splice(
+        index,
+        1
+    );
 }
 
 
@@ -71,9 +117,15 @@ function updateBuildings(deltaTime) {
         let building =
             window.buildings[i];
 
-        if (!building) continue;
+        if (!building) {
+            continue;
+        }
 
-        if (building.type === "turret") {
+        if (
+            building.type ===
+            "turret"
+        ) {
+
             updateTurret(
                 building,
                 deltaTime
@@ -84,25 +136,36 @@ function updateBuildings(deltaTime) {
 
 
 // ==============================
-// TURRET AI
+// TURRET UPDATE
 // ==============================
 
-function updateTurret(turret, deltaTime) {
+function updateTurret(
+    turret,
+    deltaTime
+) {
 
-    if (turret.fireCooldown > 0) {
+    if (
+        turret.fireCooldown > 0
+    ) {
 
-        turret.fireCooldown -= deltaTime;
+        turret.fireCooldown -=
+            deltaTime;
 
-        if (turret.fireCooldown < 0) {
+        if (
+            turret.fireCooldown < 0
+        ) {
             turret.fireCooldown = 0;
         }
     }
 
 
     // Reload
-    if (turret.ammo <= 0) {
+    if (
+        turret.ammo <= 0
+    ) {
 
-        turret.reloadTimer += deltaTime;
+        turret.reloadTimer +=
+            deltaTime;
 
         if (
             turret.reloadTimer >=
@@ -140,24 +203,31 @@ function updateTurret(turret, deltaTime) {
     }
 
 
-    if (turret.target === null) {
+    if (
+        turret.target === null
+    ) {
         return;
     }
 
 
-    if (turret.fireCooldown <= 0) {
+    if (
+        turret.fireCooldown <= 0
+    ) {
+
         fireTurret(turret);
     }
 }
 
 
 // ==============================
-// FIRE
+// FIRE TURRET
 // ==============================
 
 function fireTurret(turret) {
 
-    if (turret.ammo <= 0) {
+    if (
+        turret.ammo <= 0
+    ) {
         return;
     }
 
@@ -183,6 +253,9 @@ function fireTurret(turret) {
         target.y - startY;
 
 
+    // We still need the actual
+    // distance here because we need
+    // to normalize the direction.
     let distance =
         Math.sqrt(
             dx * dx +
@@ -190,7 +263,9 @@ function fireTurret(turret) {
         );
 
 
-    if (distance <= 0) {
+    if (
+        distance <= 0
+    ) {
         return;
     }
 
@@ -280,8 +355,6 @@ function traceBulletToWall(
         window.wall.y;
 
 
-    // The bullet must cross the Wall's
-    // horizontal front edge.
     let oldSide =
         oldY < wallY;
 
@@ -289,8 +362,9 @@ function traceBulletToWall(
         newY < wallY;
 
 
-    // No crossing this frame.
-    if (oldSide === newSide) {
+    if (
+        oldSide === newSide
+    ) {
         return null;
     }
 
@@ -299,18 +373,22 @@ function traceBulletToWall(
         newY - oldY;
 
 
-    if (dy === 0) {
+    if (
+        dy === 0
+    ) {
         return null;
     }
 
 
-    // Find exactly where the line
-    // crosses the Wall front.
     let t =
-        (wallY - oldY) / dy;
+        (wallY - oldY) /
+        dy;
 
 
-    if (t < 0 || t > 1) {
+    if (
+        t < 0 ||
+        t > 1
+    ) {
         return null;
     }
 
@@ -327,8 +405,6 @@ function traceBulletToWall(
         wallY;
 
 
-    // Check whether this point is
-    // actually solid Wall.
     if (
         typeof window.isWallSolid ===
         "function"
@@ -357,11 +433,16 @@ function traceBulletToWall(
 // BULLET UPDATE
 // ==============================
 
-function updateBullets(deltaTime) {
+function updateBullets(
+    deltaTime
+) {
 
     for (
-        let i = window.bullets.length - 1;
+        let i =
+            window.bullets.length - 1;
+
         i >= 0;
+
         i--
     ) {
 
@@ -383,7 +464,6 @@ function updateBullets(deltaTime) {
             oldY;
 
 
-        // Calculate new position
         let newX =
             oldX +
             bullet.vx *
@@ -395,7 +475,7 @@ function updateBullets(deltaTime) {
             deltaTime;
 
 
-        // LINE TRACE
+        // Line trace
         let wallHit =
             traceBulletToWall(
                 oldX,
@@ -436,7 +516,6 @@ function updateBullets(deltaTime) {
         }
 
 
-        // Update position
         bullet.x =
             newX;
 
@@ -444,8 +523,10 @@ function updateBullets(deltaTime) {
             newY;
 
 
-        // Check whether the bullet
-        // has reached its original target.
+        // ==========================
+        // SQUARED DISTANCE
+        // ==========================
+
         let targetDX =
             bullet.targetX -
             bullet.x;
@@ -455,19 +536,26 @@ function updateBullets(deltaTime) {
             bullet.y;
 
 
-        let targetDistance =
-            Math.sqrt(
-                targetDX *
-                targetDX +
-                targetDY *
-                targetDY
-            );
+        let targetDistanceSquared =
+            targetDX *
+            targetDX +
+            targetDY *
+            targetDY;
+
+
+        let impactDistance =
+            bullet.speed *
+            deltaTime;
+
+
+        let impactDistanceSquared =
+            impactDistance *
+            impactDistance;
 
 
         if (
-            targetDistance <=
-            bullet.speed *
-            deltaTime
+            targetDistanceSquared <=
+            impactDistanceSquared
         ) {
 
             bullet.x =
@@ -514,7 +602,9 @@ function drawBuildings() {
         let building =
             window.buildings[i];
 
-        if (!building) continue;
+        if (!building) {
+            continue;
+        }
 
         if (
             building.type ===
@@ -578,7 +668,10 @@ function drawTurret(turret) {
 
     let angle = 0;
 
-    if (turret.target) {
+
+    if (
+        turret.target
+    ) {
 
         let dx =
             turret.target.x -
@@ -587,6 +680,7 @@ function drawTurret(turret) {
         let dy =
             turret.target.y -
             centerY;
+
 
         angle =
             Math.atan2(
@@ -673,6 +767,7 @@ function drawTurret(turret) {
         Math.PI * 2
     );
 
+
     ctx.fillStyle =
         "#3f4448";
 
@@ -752,6 +847,7 @@ function drawBullets() {
             screenY
         );
 
+
         ctx.strokeStyle =
             "#ffffff";
 
@@ -780,6 +876,7 @@ function drawBullets() {
             Math.PI * 2
         );
 
+
         ctx.fillStyle =
             "#ffffff";
 
@@ -794,29 +891,12 @@ function drawBullets() {
 
 function updateBuildingStats() {
 
-    if (!window.stats) {
-        return;
-    }
-
-    let turretCount = 0;
-
-    for (
-        let i = 0;
-        i < window.buildings.length;
-        i++
+    if (
+        window.turretCount < 0
     ) {
 
-        if (
-            window.buildings[i].type ===
-            "turret"
-        ) {
-
-            turretCount++;
-        }
+        window.turretCount = 0;
     }
-
-    window.turretCount =
-        turretCount;
 }
 
 
@@ -826,6 +906,9 @@ function updateBuildingStats() {
 
 window.buildTurret =
     buildTurret;
+
+window.removeBuilding =
+    removeBuilding;
 
 window.updateBuildings =
     updateBuildings;
@@ -851,4 +934,4 @@ if (
     window.fileLoaded(
         "15_buildings.js"
     );
-           }
+}
