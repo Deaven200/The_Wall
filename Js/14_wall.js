@@ -71,7 +71,7 @@ function getWallChunk(chunkX, chunkY) {
         );
 
     let chunk =
-        window.wall.chunks.get(key);
+        window.wall.maskChunks.get(key);
 
     if (chunk) {
         return chunk;
@@ -93,7 +93,7 @@ function getWallChunk(chunkX, chunkY) {
         mask: mask
     };
 
-    window.wall.chunks.set(
+    window.wall.maskChunks.set(
         key,
         chunk
     );
@@ -198,7 +198,7 @@ function isWallMaskSolid(
         );
 
     let chunk =
-        window.wall.chunks.get(
+        window.wall.maskChunks.get(
             key
         );
 
@@ -351,11 +351,6 @@ function setMaskPixel(
     pixelY,
     value
 ) {
-
-  console.log(
-    "maskChunks:",
-    window.wall.maskChunks
-);
 
     let size =
         getMaskSize();
@@ -1002,10 +997,13 @@ function checkWallBuildingCollision() {
 
 function updateWall(deltaTime) {
 
+    if (window.gameOver) {
+        return;
+    }
+
     window.wall.y +=
         window.wall.speed *
         deltaTime;
-
 
     checkWallBuildingCollision();
 }
@@ -1078,6 +1076,13 @@ function drawWall() {
         window.wall.chunkSize *
         window.wall.pixelsPerTile;
 
+    let pixelSize =
+        (
+            tileSize /
+            window.wall.pixelsPerTile
+        ) *
+        camera.zoom;
+
     for (let [key, chunk] of window.wall.maskChunks) {
 
         let parts = key.split(",");
@@ -1091,75 +1096,56 @@ function drawWall() {
         let startPixelY =
             chunkY * chunkSizePixels;
 
-        for (
-            let py = 0;
-            py < chunkSizePixels;
-            py++
-        ) {
+        for (let i = 0; i < chunk.mask.length; i++) {
 
-            for (
-                let px = 0;
-                px < chunkSizePixels;
-                px++
-            ) {
+            if (chunk.mask[i] === 0) {
 
-                let index =
-                    py * chunkSizePixels +
-                    px;
+                let px = i % chunkSizePixels;
+                let py = Math.floor(i / chunkSizePixels);
 
-                if (chunk[index] === 0) {
+                let relativeWorldX =
+                    (
+                        startPixelX +
+                        px
+                    ) /
+                    window.wall.pixelsPerTile;
 
-                    let relativeWorldX =
-                        (
-                            startPixelX +
-                            px
-                        ) /
-                        window.wall.pixelsPerTile;
+                let relativeWorldY =
+                    (
+                        startPixelY +
+                        py
+                    ) /
+                    window.wall.pixelsPerTile;
 
-                    let relativeWorldY =
-                        (
-                            startPixelY +
-                            py
-                        ) /
-                        window.wall.pixelsPerTile;
+                let worldX =
+                    relativeWorldX;
 
-                    let worldX =
-                        relativeWorldX;
+                let worldY =
+                    window.wall.y +
+                    relativeWorldY;
 
-                    let worldY =
-                        window.wall.y +
-                        relativeWorldY;
+                let screenX =
+                    (
+                        worldX * tileSize -
+                        camera.x
+                    ) *
+                    camera.zoom +
+                    canvas.width / 2;
 
-                    let screenX =
-                        (
-                            worldX * tileSize -
-                            camera.x
-                        ) *
-                        camera.zoom +
-                        canvas.width / 2;
+                let screenY =
+                    (
+                        worldY * tileSize -
+                        camera.y
+                    ) *
+                    camera.zoom +
+                    canvas.height / 2;
 
-                    let screenY =
-                        (
-                            worldY * tileSize -
-                            camera.y
-                        ) *
-                        camera.zoom +
-                        canvas.height / 2;
-
-                    let pixelSize =
-                        (
-                            tileSize /
-                            window.wall.pixelsPerTile
-                        ) *
-                        camera.zoom;
-
-                    wallCtx.fillRect(
-                        screenX - pixelSize / 2,
-                        screenY - pixelSize / 2,
-                        pixelSize + 1,
-                        pixelSize + 1
-                    );
-                }
+                wallCtx.fillRect(
+                    screenX - pixelSize / 2,
+                    screenY - pixelSize / 2,
+                    pixelSize + 1,
+                    pixelSize + 1
+                );
             }
         }
     }
@@ -1172,42 +1158,6 @@ function drawWall() {
         0,
         0
     );
-}
-
-
-function updateWall(deltaTime) {
-
-    if (window.gameOver) {
-        return;
-    }
-
-    window.wall.y +=
-        window.wall.speed *
-        deltaTime;
-
-    /*
-        Keep the Wall mask relative to
-        the moving front edge.
-
-        The mask itself does not move.
-        Only wall.y changes.
-    */
-
-    if (
-        typeof window.collapseWallArea ===
-        "function"
-    ) {
-        /*
-            Collapse damaged Wall sections
-            near the front edge.
-        */
-
-        window.collapseWallArea(
-            0,
-            window.wall.y,
-            2
-        );
-    }
 }
 
 
