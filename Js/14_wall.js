@@ -1,1265 +1,598 @@
-// ============================================================
-// THE WALL
-// Chunked Destructible Bitmap / Mask
-// With Northward Collapse
-// ============================================================
+// ==================================================
+// 14_wall.js
+// ==================================================
+
+
+// --------------------------------------------------
+// WALL SETTINGS
+// --------------------------------------------------
 
 window.wall = {
+
+    // Exact front position of the Wall.
     y: -50,
-    speed: 1,
 
-    chunkSize: 32,
-    pixelsPerTile: 4,
+    // Tiles per second.
+    speed: 0.1,
 
-    maskChunks: new Map(),
-
-    bulletHoleRadius: 0.8,
-
-    depth: 100000,
-
-    canvas: null,
-    ctx: null,
-
-    lastCanvasWidth: 0,
-    lastCanvasHeight: 0,
-
-    collapseIterations: 3
+    // Damaged/destroyed Wall tiles.
+    //
+    // Key:
+    // "x,offsetY"
+    //
+    // Value:
+    // Remaining health.
+    //
+    // A missing key means the tile has full health.
+    damagedTiles: new Map()
 };
 
 
-// ============================================================
-// WALL SCREEN POSITION
-// ============================================================
+// --------------------------------------------------
+// WALL TILE KEY
+// --------------------------------------------------
 
-function getWallScreenY() {
+function getWallTileKey(x, offsetY) {
 
-    return (
-        (
-            window.wall.y * tileSize -
-            camera.y
-        ) * camera.zoom +
-        canvas.height / 2
-    );
+    return x + "," + offsetY;
+
 }
 
 
-// ============================================================
-// MASK HELPERS
-// ============================================================
+// --------------------------------------------------
+// WALL TILE MAX HEALTH
+// --------------------------------------------------
 
-function getMaskSize() {
-
-    return (
-        window.wall.chunkSize *
-        window.wall.pixelsPerTile
-    );
-}
+window.wallTileMaxHealth = 100;
 
 
-function getMaskChunkKey(chunkX, chunkY) {
+// --------------------------------------------------
+// GET WALL TILE HEALTH
+// --------------------------------------------------
 
-    return chunkX + "," + chunkY;
-}
+window.getWallTileHealth = function(
+    x,
+    y
+) {
 
-
-function getWallChunk(chunkX, chunkY) {
-
-    let key =
-        getMaskChunkKey(
-            chunkX,
-            chunkY
+    let offsetY =
+        Math.floor(
+            window.wall.y - y
         );
 
-    let chunk =
-        window.wall.maskChunks.get(key);
 
-    if (chunk) {
-        return chunk;
+    // South of the Wall = no Wall.
+
+    if (offsetY < 0) {
+        return 0;
     }
 
-    let size =
-        getMaskSize();
-
-    let mask =
-        new Uint8Array(
-            size * size
-        );
-
-    mask.fill(1);
-
-    chunk = {
-        x: chunkX,
-        y: chunkY,
-        mask: mask
-    };
-
-    window.wall.maskChunks.set(
-        key,
-        chunk
-    );
-
-    return chunk;
-}
-
-
-// ============================================================
-// WALL RELATIVE Y
-// ============================================================
-
-function getRelativeWallY(worldY) {
-
-    return (
-        worldY -
-        window.wall.y
-    );
-}
-
-
-// ============================================================
-// WORLD → MASK POSITION
-// ============================================================
-
-function getMaskPosition(
-    worldX,
-    worldY
-) {
-
-    let chunkSize =
-        window.wall.chunkSize;
-
-    let pixelsPerTile =
-        window.wall.pixelsPerTile;
-
-    let relativeY =
-        getRelativeWallY(
-            worldY
-        );
-
-    let chunkX =
-        Math.floor(
-            worldX /
-            chunkSize
-        );
-
-    let chunkY =
-        Math.floor(
-            relativeY /
-            chunkSize
-        );
-
-    let localX =
-        worldX -
-        chunkX * chunkSize;
-
-    let localY =
-        relativeY -
-        chunkY * chunkSize;
-
-    let pixelX =
-        Math.floor(
-            localX *
-            pixelsPerTile
-        );
-
-    let pixelY =
-        Math.floor(
-            localY *
-            pixelsPerTile
-        );
-
-    return {
-        chunkX: chunkX,
-        chunkY: chunkY,
-        pixelX: pixelX,
-        pixelY: pixelY
-    };
-}
-
-
-// ============================================================
-// MASK COLLISION
-// ============================================================
-
-function isWallMaskSolid(
-    worldX,
-    worldY
-) {
-
-    let position =
-        getMaskPosition(
-            worldX,
-            worldY
-        );
 
     let key =
-        getMaskChunkKey(
-            position.chunkX,
-            position.chunkY
+        getWallTileKey(
+            x,
+            offsetY
         );
 
-    let chunk =
-        window.wall.maskChunks.get(
+
+    if (
+        window.wall.damagedTiles.has(
+            key
+        )
+    ) {
+
+        return window.wall.damagedTiles.get(
             key
         );
-
-    /*
-        Untouched chunks are solid.
-    */
-
-    if (!chunk) {
-        return true;
     }
 
-    let size =
-        getMaskSize();
 
-    if (
-        position.pixelX < 0 ||
-        position.pixelX >= size ||
-        position.pixelY < 0 ||
-        position.pixelY >= size
-    ) {
-        return true;
-    }
+    // Undamaged tile.
 
-    let index =
-        position.pixelY *
-        size +
-        position.pixelX;
-
-    return chunk.mask[index] !== 0;
-}
+    return window.wallTileMaxHealth;
+};
 
 
-// ============================================================
-// WALL COLLISION
-// ============================================================
+// --------------------------------------------------
+// CHECK IF WALL TILE EXISTS
+// --------------------------------------------------
 
-function isWallSolid(
-    worldX,
-    worldY
+window.isWallTile = function(
+    x,
+    y
 ) {
 
-    if (
-        worldY >=
-        window.wall.y
-    ) {
-        return false;
-    }
-
-    return isWallMaskSolid(
-        worldX,
-        worldY
+    return (
+        window.getWallTileHealth(
+            x,
+            y
+        ) > 0
     );
-}
+
+};
 
 
-// ============================================================
-// GET MASK PIXEL
-// ============================================================
+// --------------------------------------------------
+// DAMAGE WALL TILE
+// --------------------------------------------------
 
-function getMaskPixel(
-    pixelX,
-    pixelY
+window.damageWallTile = function(
+    x,
+    offsetY,
+    damage
 ) {
 
-    let size =
-        getMaskSize();
-
-    let chunkSize =
-        window.wall.chunkSize;
-
-    let pixelsPerTile =
-        window.wall.pixelsPerTile;
-
-
-    let tilesX =
-        pixelX /
-        pixelsPerTile;
-
-    let tilesY =
-        pixelY /
-        pixelsPerTile;
-
-
-    let chunkX =
-        Math.floor(
-            tilesX /
-            chunkSize
-        );
-
-    let chunkY =
-        Math.floor(
-            tilesY /
-            chunkSize
-        );
-
-
-    let localPixelX =
-        pixelX -
-        chunkX *
-        size;
-
-    let localPixelY =
-        pixelY -
-        chunkY *
-        size;
-
-
-    if (
-        localPixelX < 0 ||
-        localPixelX >= size ||
-        localPixelY < 0 ||
-        localPixelY >= size
-    ) {
-        return 1;
-    }
-
-
-    let chunk =
-        window.wall.maskChunks.get(
-            getMaskChunkKey(
-                chunkX,
-                chunkY
-            )
-        );
-
-
-    /*
-        A chunk that doesn't exist is solid.
-    */
-
-    if (!chunk) {
-        return 1;
-    }
-
-
-    return chunk.mask[
-        localPixelY *
-        size +
-        localPixelX
-    ];
-}
-
-
-// ============================================================
-// SET MASK PIXEL
-// ============================================================
-
-function setMaskPixel(
-    pixelX,
-    pixelY,
-    value
-) {
-
-    let size =
-        getMaskSize();
-
-    let chunkSize =
-        window.wall.chunkSize;
-
-    let pixelsPerTile =
-        window.wall.pixelsPerTile;
-
-
-    let tilesX =
-        pixelX /
-        pixelsPerTile;
-
-    let tilesY =
-        pixelY /
-        pixelsPerTile;
-
-
-    let chunkX =
-        Math.floor(
-            tilesX /
-            chunkSize
-        );
-
-    let chunkY =
-        Math.floor(
-            tilesY /
-            chunkSize
-        );
-
-
-    let localPixelX =
-        pixelX -
-        chunkX *
-        size;
-
-    let localPixelY =
-        pixelY -
-        chunkY *
-        size;
-
-
-    if (
-        localPixelX < 0 ||
-        localPixelX >= size ||
-        localPixelY < 0 ||
-        localPixelY >= size
-    ) {
-        return;
-    }
-
-
-    let chunk =
-        getWallChunk(
-            chunkX,
-            chunkY
-        );
-
-
-    chunk.mask[
-        localPixelY *
-        size +
-        localPixelX
-    ] = value;
-}
-
-
-// ============================================================
-// COLLAPSE ONE AREA NORTH
-// ============================================================
-
-function collapseWallArea(
-    centerWorldX,
-    centerWorldY,
-    radius
-) {
-
-    let pixelsPerTile =
-        window.wall.pixelsPerTile;
-
-    let centerX =
-        centerWorldX *
-        pixelsPerTile;
-
-    let relativeCenterY =
-        centerWorldY -
-        window.wall.y;
-
-    let centerY =
-        relativeCenterY *
-        pixelsPerTile;
-
-    let radiusPixels =
-        radius *
-        pixelsPerTile;
-
-
-    let minX =
-        Math.floor(
-            centerX -
-            radiusPixels
-        );
-
-    let maxX =
-        Math.ceil(
-            centerX +
-            radiusPixels
-        );
-
-    let minY =
-        Math.floor(
-            centerY -
-            radiusPixels -
-            pixelsPerTile * 4
-        );
-
-    let maxY =
-        Math.ceil(
-            centerY +
-            radiusPixels +
-            pixelsPerTile * 4
-        );
-
-
-    let width =
-        maxX -
-        minX +
-        1;
-
-    let height =
-        maxY -
-        minY +
-        1;
-
-
-    /*
-        Work on a small temporary area.
-
-        1 = Wall
-        0 = empty
-    */
-
-    let area =
-        new Uint8Array(
-            width *
-            height
-        );
-
-
-    for (
-        let y = 0;
-        y < height;
-        y++
-    ) {
-
-        for (
-            let x = 0;
-            x < width;
-            x++
-        ) {
-
-            area[
-                y * width + x
-            ] =
-                getMaskPixel(
-                    minX + x,
-                    minY + y
-                );
-        }
-    }
-
-
-    /*
-        Multiple passes allow material to
-        move north through empty space.
-    */
-
-    for (
-        let pass = 0;
-        pass <
-        window.wall.collapseIterations;
-        pass++
-    ) {
-
-        for (
-            let y = 1;
-            y < height;
-            y++
-        ) {
-
-            for (
-                let x = 0;
-                x < width;
-                x++
-            ) {
-
-                let index =
-                    y * width + x;
-
-
-                /*
-                    Already empty.
-                */
-
-                if (
-                    area[index] === 0
-                ) {
-                    continue;
-                }
-
-
-                /*
-                    Pixel directly NORTH.
-                */
-
-                let northIndex =
-                    (
-                        y - 1
-                    ) *
-                    width +
-                    x;
-
-
-                /*
-                    If north is empty, this pixel
-                    can fall north.
-                */
-
-                if (
-                    area[northIndex] === 0
-                ) {
-
-                    area[northIndex] = 1;
-
-                    area[index] = 0;
-                }
-            }
-        }
-    }
-
-
-    /*
-        Write the changed area back into
-        the Wall mask.
-    */
-
-    for (
-        let y = 0;
-        y < height;
-        y++
-    ) {
-
-        for (
-            let x = 0;
-            x < width;
-            x++
-        ) {
-
-            let value =
-                area[
-                    y * width + x
-                ];
-
-
-            let oldValue =
-                getMaskPixel(
-                    minX + x,
-                    minY + y
-                );
-
-
-            if (
-                value !== oldValue
-            ) {
-
-                setMaskPixel(
-                    minX + x,
-                    minY + y,
-                    value
-                );
-            }
-        }
-    }
-}
-
-
-// ============================================================
-// DESTROY WALL CIRCLE
-// ============================================================
-
-function destroyWallCircle(
-    worldX,
-    worldY,
-    radius
-) {
-
-    if (
-        worldY >
-        window.wall.y + 0.05
-    ) {
+    // ----------------------------------------------
+    // INVALID OFFSET
+    // ----------------------------------------------
+
+    if (offsetY < 0) {
         return false;
     }
 
 
-    let pixelsPerTile =
-        window.wall.pixelsPerTile;
-
-
-    let chunkSize =
-        window.wall.chunkSize;
-
-
-    let centerX =
-        worldX *
-        pixelsPerTile;
-
-
-    let centerY =
-        (
-            worldY -
-            window.wall.y
-        ) *
-        pixelsPerTile;
-
-
-    let radiusPixels =
-        radius *
-        pixelsPerTile;
-
-
-    let minX =
-        Math.floor(
-            centerX -
-            radiusPixels
-        );
-
-    let maxX =
-        Math.ceil(
-            centerX +
-            radiusPixels
-        );
-
-    let minY =
-        Math.floor(
-            centerY -
-            radiusPixels
-        );
-
-    let maxY =
-        Math.ceil(
-            centerY +
-            radiusPixels
+    let key =
+        getWallTileKey(
+            x,
+            offsetY
         );
 
 
-    let radiusSquared =
-        radiusPixels *
-        radiusPixels;
+    // ----------------------------------------------
+    // CURRENT HEALTH
+    // ----------------------------------------------
+
+    let health =
+        window.wall.damagedTiles.has(key)
+            ? window.wall.damagedTiles.get(key)
+            : window.wallTileMaxHealth;
 
 
-    let changed =
-        false;
+    // ----------------------------------------------
+    // APPLY DAMAGE
+    // ----------------------------------------------
+
+    health -= damage;
 
 
-    for (
-        let py = minY;
-        py <= maxY;
-        py++
-    ) {
+    // ----------------------------------------------
+    // DESTROYED
+    // ----------------------------------------------
 
-        for (
-            let px = minX;
-            px <= maxX;
-            px++
-        ) {
+    if (health <= 0) {
 
-            let dx =
-                px -
-                centerX;
-
-            let dy =
-                py -
-                centerY;
-
-
-            if (
-                dx * dx +
-                dy * dy >
-                radiusSquared
-            ) {
-                continue;
-            }
-
-
-            let pixelWorldY =
-                window.wall.y +
-                py /
-                pixelsPerTile;
-
-
-            if (
-                pixelWorldY >
-                window.wall.y + 0.05
-            ) {
-                continue;
-            }
-
-
-            let oldValue =
-                getMaskPixel(
-                    px,
-                    py
-                );
-
-
-            if (
-                oldValue !== 0
-            ) {
-
-                setMaskPixel(
-                    px,
-                    py,
-                    0
-                );
-
-                changed = true;
-            }
-        }
-    }
-
-
-    /*
-        If we actually destroyed Wall,
-        let nearby material collapse north.
-    */
-
-    if (changed) {
-
-        collapseWallArea(
-            worldX,
-            worldY,
-            radius
+        window.wall.damagedTiles.set(
+            key,
+            0
         );
 
 
-        if (
-            window.stats &&
-            typeof window.stats.wallDestroyed ===
-            "number"
-        ) {
+        if (window.stats) {
 
             window.stats.wallDestroyed++;
-        }
 
-        return true;
-    }
-
-
-    return false;
-}
-
-
-// ============================================================
-// WALL CELL DAMAGE
-// ============================================================
-
-function damageWallCell(
-    x,
-    y,
-    worldY
-) {
-
-    return destroyWallCircle(
-
-        x + 0.5,
-
-        worldY + 0.5,
-
-        window.wall.bulletHoleRadius
-
-    );
-}
-
-
-// ============================================================
-// BUILDING COLLISION
-// ============================================================
-
-function checkWallBuildingCollision() {
-
-    if (
-        !window.buildings ||
-        window.buildings.length === 0
-    ) {
-        return;
-    }
-
-
-    for (
-        let i =
-            window.buildings.length - 1;
-
-        i >= 0;
-
-        i--
-    ) {
-
-        let building =
-            window.buildings[i];
-
-
-        let size =
-            building.size || 1;
-
-
-        let left =
-            building.x;
-
-        let right =
-            building.x + size;
-
-        let top =
-            building.y;
-
-        let bottom =
-            building.y + size;
-
-
-        /*
-            Wall has not reached building.
-        */
-
-        if (
-            window.wall.y <
-            top
-        ) {
-            continue;
-        }
-
-
-        /*
-            Wall has already passed building.
-        */
-
-        if (
-            window.wall.y >
-            bottom
-        ) {
-            continue;
-        }
-
-
-        /*
-            Check several points across the
-            building.
-
-            ANY solid Wall pixel touching the
-            building means destruction.
-        */
-
-        let checkY =
-            Math.min(
-                window.wall.y,
-                bottom
-            );
-
-
-        let points = [
-
-            [left + 0.05, checkY],
-
-            [right - 0.05, checkY],
-
-            [
-                (left + right) / 2,
-                checkY
-            ],
-
-            [left + 0.05, top + 0.05],
-
-            [right - 0.05, top + 0.05],
-
-            [
-                (left + right) / 2,
-                top + 0.05
-            ]
-        ];
-
-
-        let solidFound =
-            false;
-
-
-        for (
-            let p = 0;
-            p < points.length;
-            p++
-        ) {
-
-            if (
-                isWallSolid(
-                    points[p][0],
-                    points[p][1]
-                )
-            ) {
-
-                solidFound = true;
-
-                break;
-            }
         }
 
 
         if (
-            !solidFound
-        ) {
-            continue;
-        }
-
-
-        if (
-            typeof window.removeBuilding ===
+            typeof window.updateStats ===
             "function"
         ) {
 
-            window.removeBuilding(i);
+            window.updateStats();
 
-        } else {
-
-            window.buildings.splice(
-                i,
-                1
-            );
         }
-    }
-}
 
 
-// ============================================================
-// UPDATE WALL
-// ============================================================
-
-function updateWall(deltaTime) {
-
-    if (window.gameOver) {
-        return;
+        return true;
     }
 
-    window.wall.y +=
-        window.wall.speed *
-        deltaTime;
 
-    checkWallBuildingCollision();
-}
+    // ----------------------------------------------
+    // STILL ALIVE
+    // ----------------------------------------------
 
-
-// ============================================================
-// DRAW WALL
-// ============================================================
-
-function drawWall() {
-
-    if (!window.wall.canvas) {
-        window.wall.canvas = document.createElement("canvas");
-        window.wall.ctx = window.wall.canvas.getContext("2d");
-    }
-
-    let wallCanvas = window.wall.canvas;
-    let wallCtx = window.wall.ctx;
-
-    if (
-        wallCanvas.width !== canvas.width ||
-        wallCanvas.height !== canvas.height
-    ) {
-        wallCanvas.width = canvas.width;
-        wallCanvas.height = canvas.height;
-        window.wall.lastCanvasWidth = canvas.width;
-        window.wall.lastCanvasHeight = canvas.height;
-    }
-
-    wallCtx.clearRect(
-        0,
-        0,
-        wallCanvas.width,
-        wallCanvas.height
+    window.wall.damagedTiles.set(
+        key,
+        health
     );
 
-    let frontScreenY =
-        (
-            window.wall.y * tileSize -
-            camera.y
-        ) * camera.zoom +
-        canvas.height / 2;
 
-    /*
-        Draw the Wall as a solid area above
-        the moving front edge.
-    */
-
-    wallCtx.fillStyle = "#555";
-
-    wallCtx.fillRect(
-        0,
-        0,
-        wallCanvas.width,
-        Math.max(0, frontScreenY)
-    );
-
-    /*
-        Cut the destructible holes out of the
-        Wall mask.
-
-        Holes are stored relative to wall.y,
-        so they move with the Wall.
-    */
-
-    wallCtx.globalCompositeOperation =
-        "destination-out";
-
-    let chunkSizePixels =
-        window.wall.chunkSize *
-        window.wall.pixelsPerTile;
-
-    let pixelSize =
-        (
-            tileSize /
-            window.wall.pixelsPerTile
-        ) *
-        camera.zoom;
-
-    for (let [key, chunk] of window.wall.maskChunks) {
-
-        let parts = key.split(",");
-
-        let chunkX = Number(parts[0]);
-        let chunkY = Number(parts[1]);
-
-        let startPixelX =
-            chunkX * chunkSizePixels;
-
-        let startPixelY =
-            chunkY * chunkSizePixels;
-
-        for (let i = 0; i < chunk.mask.length; i++) {
-
-            if (chunk.mask[i] === 0) {
-
-                let px = i % chunkSizePixels;
-                let py = Math.floor(i / chunkSizePixels);
-
-                let relativeWorldX =
-                    (
-                        startPixelX +
-                        px
-                    ) /
-                    window.wall.pixelsPerTile;
-
-                let relativeWorldY =
-                    (
-                        startPixelY +
-                        py
-                    ) /
-                    window.wall.pixelsPerTile;
-
-                let worldX =
-                    relativeWorldX;
-
-                let worldY =
-                    window.wall.y +
-                    relativeWorldY;
-
-                let screenX =
-                    (
-                        worldX * tileSize -
-                        camera.x
-                    ) *
-                    camera.zoom +
-                    canvas.width / 2;
-
-                let screenY =
-                    (
-                        worldY * tileSize -
-                        camera.y
-                    ) *
-                    camera.zoom +
-                    canvas.height / 2;
-
-                wallCtx.fillRect(
-                    screenX - pixelSize / 2,
-                    screenY - pixelSize / 2,
-                    pixelSize + 1,
-                    pixelSize + 1
-                );
-            }
-        }
-    }
-
-    wallCtx.globalCompositeOperation =
-        "source-over";
-
-    ctx.drawImage(
-        wallCanvas,
-        0,
-        0
-    );
-}
+    return false;
+};
 
 
-function getWallScreenY() {
+// --------------------------------------------------
+// FIND CLOSEST WALL TILE
+// --------------------------------------------------
 
-    return (
-        (
-            window.wall.y * tileSize -
-            camera.y
-        ) *
-        camera.zoom +
-        canvas.height / 2
-    );
-}
+window.getClosestWallTile = function(
+    x,
+    y,
+    range
+) {
 
-function getClosestWallPoint(worldX, worldY, range) {
+    let closest = null;
 
-    let bestPoint = null;
-
-    let bestDistanceSquared =
+    let closestDistanceSquared =
         range * range;
 
-    let step = 0.5;
 
-    let steps =
-        Math.ceil(range / step);
+    // ----------------------------------------------
+    // SEARCH AREA
+    // ----------------------------------------------
+
+    let minX =
+        Math.floor(
+            x - range
+        );
+
+    let maxX =
+        Math.floor(
+            x + range
+        );
+
+    let minY =
+        Math.floor(
+            y - range
+        );
+
+    let maxY =
+        Math.floor(
+            y + range
+        );
+
+
+    // ----------------------------------------------
+    // SEARCH TILES
+    // ----------------------------------------------
 
     for (
-        let y = -steps;
-        y <= steps;
-        y++
+        let tileY = minY;
+        tileY <= maxY;
+        tileY++
     ) {
 
-        let testY =
-            worldY + y * step;
-
         for (
-            let x = -steps;
-            x <= steps;
-            x++
+            let tileX = minX;
+            tileX <= maxX;
+            tileX++
         ) {
 
-            let testX =
-                worldX + x * step;
+            if (
+                !window.isWallTile(
+                    tileX,
+                    tileY
+                )
+            ) {
+
+                continue;
+            }
+
+
+            // --------------------------------------
+            // TILE CENTER
+            // --------------------------------------
+
+            let tileCenterX =
+                tileX + 0.5;
+
+            let offsetY =
+                Math.floor(
+                    window.wall.y -
+                    tileY
+                );
+
+
+            /*
+                Reconstruct the current position
+                of this Wall tile.
+
+                This means the target moves with
+                the Wall.
+            */
+
+            let tileCenterY =
+                window.wall.y -
+                offsetY +
+                0.5;
+
+
+            // --------------------------------------
+            // DISTANCE
+            // --------------------------------------
 
             let dx =
-                testX - worldX;
+                tileCenterX - x;
 
             let dy =
-                testY - worldY;
+                tileCenterY - y;
+
 
             let distanceSquared =
                 dx * dx +
                 dy * dy;
 
+
             if (
-                distanceSquared >=
-                bestDistanceSquared
+                distanceSquared >
+                closestDistanceSquared
             ) {
+
                 continue;
             }
 
-            if (
-                !isWallSolid(
-                    testX,
-                    testY
-                )
-            ) {
-                continue;
-            }
 
-            bestDistanceSquared =
+            // --------------------------------------
+            // NEW CLOSEST TILE
+            // --------------------------------------
+
+            closestDistanceSquared =
                 distanceSquared;
 
-            bestPoint = {
-                x: testX,
-                y: testY
+
+            closest = {
+
+                x: tileCenterX,
+
+                y: tileCenterY,
+
+                tileX: tileX,
+
+                offsetY: offsetY
+
             };
         }
     }
 
-    return bestPoint;
-}
 
-window.getClosestWallPoint =
-    getClosestWallPoint;
-
-window.getWallScreenY =
-    getWallScreenY;
+    return closest;
+};
 
 
-window.drawWall =
-    drawWall;
+// --------------------------------------------------
+// WALL / BUILDING COLLISION
+// --------------------------------------------------
+
+window.checkWallBuildingCollision = function(
+    building
+) {
+
+    if (!building) {
+        return false;
+    }
 
 
-window.updateWall =
-    updateWall;
+    let startX =
+        Math.floor(
+            building.x
+        );
 
-window.getClosestWallPoint =
-    getClosestWallPoint;
+
+    let endX =
+        Math.floor(
+            building.x +
+            building.size -
+            0.001
+        );
 
 
-if (typeof window.fileLoaded == "function") {
-    window.fileLoaded("14_wall.js");
+    let wallY =
+        Math.floor(
+            window.wall.y
+        );
+
+
+    for (
+        let x = startX;
+        x <= endX;
+        x++
+    ) {
+
+        if (
+            window.isWallTile(
+                x,
+                wallY
+            )
+        ) {
+
+            return true;
+        }
+    }
+
+
+    return false;
+};
+
+
+// --------------------------------------------------
+// UPDATE WALL
+// --------------------------------------------------
+
+window.updateWall = function(
+    deltaTime
+) {
+
+    /*
+        Keep the fractional position.
+
+        0.1 means the Wall moves 0.1 tiles
+        every second.
+    */
+
+    window.wall.y +=
+        window.wall.speed *
+        deltaTime;
+
+};
+
+
+// --------------------------------------------------
+// DRAW WALL
+// --------------------------------------------------
+
+window.drawWall = function() {
+
+    let wallY =
+        window.wall.y;
+
+
+    // ----------------------------------------------
+    // VISIBLE HORIZONTAL RANGE
+    // ----------------------------------------------
+
+    let startX =
+        Math.floor(
+            (
+                camera.x -
+                canvas.width /
+                camera.zoom /
+                2
+            ) / tileSize
+        ) - 1;
+
+
+    let endX =
+        Math.ceil(
+            (
+                camera.x +
+                canvas.width /
+                camera.zoom /
+                2
+            ) / tileSize
+        ) + 1;
+
+
+    // ----------------------------------------------
+    // VISIBLE VERTICAL RANGE
+    // ----------------------------------------------
+
+    let topPixel =
+        camera.y -
+        canvas.height /
+        camera.zoom /
+        2;
+
+
+    let topTile =
+        Math.floor(
+            topPixel /
+            tileSize
+        ) - 1;
+
+
+    let frontTile =
+        Math.floor(
+            wallY
+        );
+
+
+    // ----------------------------------------------
+    // DRAW
+    // ----------------------------------------------
+
+    ctx.fillStyle =
+        "#222222";
+
+
+    for (
+        let y = topTile;
+        y <= frontTile;
+        y++
+    ) {
+
+        let offsetY =
+            Math.floor(
+                wallY - y
+            );
+
+
+        for (
+            let x = startX;
+            x <= endX;
+            x++
+        ) {
+
+            let key =
+                getWallTileKey(
+                    x,
+                    offsetY
+                );
+
+
+            // --------------------------------------
+            // DESTROYED TILE
+            // --------------------------------------
+
+            if (
+                window.wall.damagedTiles.get(key) ===
+                0
+            ) {
+
+                continue;
+            }
+
+
+            // --------------------------------------
+            // TILE POSITION
+            // --------------------------------------
+
+            let tileWorldY =
+                wallY -
+                offsetY;
+
+
+            let screenX =
+                (
+                    x *
+                    tileSize -
+                    camera.x
+                ) *
+                camera.zoom +
+                canvas.width / 2;
+
+
+            let screenY =
+                (
+                    tileWorldY *
+                    tileSize -
+                    camera.y
+                ) *
+                camera.zoom +
+                canvas.height / 2;
+
+
+            let size =
+                tileSize *
+                camera.zoom;
+
+
+            // --------------------------------------
+            // DRAW TILE
+            // --------------------------------------
+
+            ctx.fillRect(
+                screenX,
+                screenY,
+                size + 1,
+                size + 1
+            );
+        }
+    }
+};
+
+
+// --------------------------------------------------
+// LOADER
+// --------------------------------------------------
+
+if (
+    typeof window.fileLoaded ==
+    "function"
+) {
+
+    window.fileLoaded(
+        "14_wall.js"
+    );
+
 }
