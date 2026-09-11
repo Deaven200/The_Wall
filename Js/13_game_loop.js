@@ -21,11 +21,9 @@ window.gameLoop = function(currentTime) {
 
         window.updateBuildings(deltaTime);
 
-        window.updateBullets(deltaTime);
+        //window.updateDrones(deltaTime);
 
-        if (typeof window.updateBuildingStats === "function") {
-            window.updateBuildingStats();
-        }
+        window.updateBullets(deltaTime);
     }
 
 
@@ -46,6 +44,8 @@ window.gameLoop = function(currentTime) {
     window.drawWall();
 
     window.drawBuildings();
+
+   // window.drawDrones();
 
     window.drawBullets();
 
