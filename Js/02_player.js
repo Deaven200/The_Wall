@@ -21,7 +21,22 @@ window.core = {
     maxHealth: 100,
     health: 100,
 
-    destroyed: false
+    destroyed: false,
+
+    // ----------------------------------------------
+    // CORE INVENTORY
+    // ----------------------------------------------
+
+    /*
+        Items stored at the Core.
+
+        The Core is the starting home for drones
+        and will eventually become part of the
+        game's logistics system.
+    */
+
+    inventory: {}
+
 };
 
 
