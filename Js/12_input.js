@@ -321,6 +321,101 @@ function getPointerDistance(a, b) {
 }
 
 
+
+
+// ==================================================
+// 12B. TAP TO COLLECT ORE
+// ==================================================
+
+canvas.addEventListener(
+    "pointerdown",
+    function(event) {
+
+        // Don't collect ore while building.
+        if (window.buildMode) {
+            return;
+        }
+
+        // Get position inside the canvas.
+        let rect =
+            canvas.getBoundingClientRect();
+
+        let screenX =
+            event.clientX -
+            rect.left;
+
+        let screenY =
+            event.clientY -
+            rect.top;
+
+        // Convert screen position to world pixels.
+        let worldPixelX =
+            camera.x +
+            (
+                screenX -
+                canvas.width / 2
+            ) / camera.zoom;
+
+        let worldPixelY =
+            camera.y +
+            (
+                screenY -
+                canvas.height / 2
+            ) / camera.zoom;
+
+        // Convert world pixels to tile coordinates.
+        let tileX =
+            Math.floor(
+                worldPixelX / tileSize
+            );
+
+        let tileY =
+            Math.floor(
+                worldPixelY / tileSize
+            );
+
+        // Get the tile that was tapped.
+        let tile =
+            window.getTile(
+                tileX,
+                tileY
+            );
+
+        // ------------------------------------------
+        // ONLY ORE CAN BE COLLECTED
+        // ------------------------------------------
+
+        if (
+            !tile ||
+            tile.type !== "ore" ||
+            tile.amount <= 0
+        ) {
+            return;
+        }
+
+        // ------------------------------------------
+        // TAKE 1 ORE
+        // ------------------------------------------
+
+        tile.amount -= 1;
+
+        // ------------------------------------------
+        // ADD 1 ORE TO CORE INVENTORY
+        // ------------------------------------------
+
+        if (
+            !window.core.inventory[tile.ore]
+        ) {
+            window.core.inventory[tile.ore] = 0;
+        }
+
+        window.core.inventory[tile.ore] += 1;
+    },
+    true
+);
+
+
+
 /* =========================================
    FILE LOADED
 ========================================= */
