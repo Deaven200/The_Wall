@@ -22,7 +22,7 @@ const files = [
     "11_player_render.js",
     "12_input.js",
     "14_wall.js",
-    "15_buildings.js",
+    "15_Turrets.js",
     "17_stats.js",
     "16_building_ui.js",
     "13_game_loop.js"
