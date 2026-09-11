@@ -24,6 +24,8 @@ const files = [
     "14_wall.js",
     "15_Turrets.js",
     "17_stats.js",
+   // "18_Drone.js",
+    "18_info_ui.js",
     "16_building_ui.js",
     "13_game_loop.js"
 
@@ -315,10 +317,97 @@ errorBox.style.display =
 errorBox.style.whiteSpace =
     "pre-wrap";
 
+errorBox.style.userSelect =
+    "text";
+
+errorBox.style.webkitUserSelect =
+    "text";
+
+errorBox.style.cursor =
+    "text";
+
 loadingScreen.appendChild(
     errorBox
 );
 
+
+// ============================================================
+// COPY ERROR BUTTON
+// ============================================================
+
+const copyErrorButton =
+    document.createElement("button");
+
+copyErrorButton.textContent =
+    "Copy Error";
+
+copyErrorButton.style.marginTop =
+    "10px";
+
+copyErrorButton.style.padding =
+    "8px 16px";
+
+copyErrorButton.style.fontSize =
+    "16px";
+
+copyErrorButton.style.cursor =
+    "pointer";
+
+copyErrorButton.style.display =
+    "none";
+
+
+copyErrorButton.onclick =
+    async function() {
+
+        try {
+
+            await navigator.clipboard.writeText(
+                errorBox.textContent
+            );
+
+            copyErrorButton.textContent =
+                "Copied!";
+
+            setTimeout(
+                function() {
+
+                    copyErrorButton.textContent =
+                        "Copy Error";
+
+                },
+                1500
+            );
+
+        } catch (error) {
+
+            /*
+                Clipboard API may be unavailable
+                in some browsers.
+
+                The error text is still selectable,
+                so you can long-press it and copy it.
+            */
+
+            copyErrorButton.textContent =
+                "Select Error to Copy";
+
+            setTimeout(
+                function() {
+
+                    copyErrorButton.textContent =
+                        "Copy Error";
+
+                },
+                2000
+            );
+        }
+    };
+
+
+loadingScreen.appendChild(
+    copyErrorButton
+);
 
 // ============================================================
 // 0K. SHOW ERROR
